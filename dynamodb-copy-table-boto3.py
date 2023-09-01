@@ -6,9 +6,10 @@ import boto3
 def migrate(source, target, region, fieldsToChange):
     print("Copying contents of table %s to %s in region %s" % (source, target, region))
 
-    fieldsToChange = [field.split(',') for field in fieldsToChange]
-    for field in fieldsToChange:
-        print("Changing field %s to %s" % (field[0], field[1]))
+    if len(fieldsToChange) > 0:
+        fieldsToChange = [field.split(',') for field in fieldsToChange]
+        for field in fieldsToChange:
+            print("Changing field %s to %s" % (field[0], field[1]))
 
 
     dynamo_client = boto3.client('dynamodb', region_name=region)
@@ -33,7 +34,7 @@ def migrate(source, target, region, fieldsToChange):
             dynamo_target_client.put_item(
                 TableName=target,
                 Item=item
-            )
+            )   
 
 
 if __name__ == '__main__':
@@ -41,6 +42,6 @@ if __name__ == '__main__':
     parser.add_argument("sourceTable", help="Source table name", type=str)
     parser.add_argument("targetTable", help="Target table name", type=str)
     parser.add_argument("--region", help="AWS region (default: eu-west-2)", type=str, nargs="?", default="eu-west-2")
-    parser.add_argument("--fieldsToChange", help="Field name to change, and new name to use e.g. 'oldField,newField'", type=str, nargs=argparse.REMAINDER)
+    parser.add_argument("--fieldsToChange", help="Field name to change, and new name to use e.g. 'oldField,newField'", type=str, nargs='*', default=[])
     args = parser.parse_args()
     migrate(args.sourceTable, args.targetTable, args.region, args.fieldsToChange)
