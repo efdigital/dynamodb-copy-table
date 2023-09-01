@@ -20,21 +20,32 @@ def migrate(source, target, region, fieldsToChange):
         TableName=source,
         Select='ALL_ATTRIBUTES',
         ReturnConsumedCapacity='NONE',
-        ConsistentRead=True
+        ConsistentRead=True,
+        PaginationConfig={
+            'PageSize': 25,
+        }
     )
 
 
 
     for page in dynamo_response:
+        batch = []
+
         for item in page['Items']:
             for field in fieldsToChange:
                 if field[0] in item:
                     item[field[1]] = item.pop(field[0])
+            batch.append({
+                'PutRequest': {
+                    'Item': item
+                }
+            })
 
-            dynamo_target_client.put_item(
-                TableName=target,
-                Item=item
-            )
+        dynamo_target_client.batch_write_item(
+            RequestItems={
+                target: batch
+            }
+        )
 
         # temporary hack to quickly add a bunch of items to the source table for testing
         # todo move this to a separate script
