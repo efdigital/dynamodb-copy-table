@@ -34,7 +34,23 @@ def migrate(source, target, region, fieldsToChange):
             dynamo_target_client.put_item(
                 TableName=target,
                 Item=item
-            )   
+            )
+
+        # temporary hack to quickly add a bunch of items to the source table for testing
+        # todo move this to a separate script
+        # temp = page['Items'][0]
+
+        # for x in range(200):
+        #     temp['pk']['S'] = str(x)
+        #     temp['sk']['S'] = str(x)
+        #     temp['TimeToExist']['S'] = str(x)
+
+        #     dynamo_client.put_item(
+        #         TableName=source,
+        #         Item=temp
+        #     )
+
+    
 
 
 if __name__ == '__main__':
