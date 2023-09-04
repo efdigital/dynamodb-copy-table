@@ -30,7 +30,6 @@ def proliferate(table, primaryKey, secondaryKey, quantity, region):
     printProgressBar(0, numberOfBatches, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for x in range(numberOfBatches):
         batch = []
-        printProgressBar(x + 1, numberOfBatches, prefix = 'Progress:', suffix = 'Complete', length = 50)
         for y in range(25):
             generatedItem = deepcopy(templateItem)
             generatedItem[primaryKey]['S'] = str(uuid4())
@@ -51,6 +50,7 @@ def proliferate(table, primaryKey, secondaryKey, quantity, region):
                 table: batch
             }
         )
+        printProgressBar(x + 1, numberOfBatches, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
     
 

@@ -1,6 +1,8 @@
 import argparse
 import boto3
 
+from progressbar import printProgressBar
+
 
 def migrate(source, target, region, fieldsToChange):
     print("Copying contents of table %s to %s in region %s" % (source, target, region))
@@ -25,7 +27,11 @@ def migrate(source, target, region, fieldsToChange):
         }
     )
 
-
+    dynamodb = boto3.resource('dynamodb', region_name=region)
+    # Note that itemCount is an approximate value. The value in AWS is updated every 6 hours.
+    itemCount = dynamodb.Table(source).item_count
+    i = 0
+    printProgressBar(0, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for page in dynamo_response:
         batch = []
 
@@ -44,6 +50,8 @@ def migrate(source, target, region, fieldsToChange):
                 target: batch
             }
         )
+        i += 25
+        printProgressBar(i, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
 
 if __name__ == '__main__':
