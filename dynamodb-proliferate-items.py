@@ -1,3 +1,4 @@
+from copy import deepcopy
 from math import ceil
 import argparse
 from uuid import uuid4
@@ -27,7 +28,7 @@ def migrate(table, primaryKey, secondaryKey, quantity, region):
     for x in range(ceil(quantity/25)):
         batch = []
         for y in range(25):
-            generatedItem = templateItem.copy()
+            generatedItem = deepcopy(templateItem)
             generatedItem[primaryKey]['S'] = str(uuid4())
             generatedItem[secondaryKey]['S'] = str(uuid4())
             batch.append({
@@ -39,7 +40,6 @@ def migrate(table, primaryKey, secondaryKey, quantity, region):
             if quantity == 0:
                 break
 
-        print("batch: %s" % batch)
         dynamo_client.batch_write_item(
             RequestItems={
                 table: batch
