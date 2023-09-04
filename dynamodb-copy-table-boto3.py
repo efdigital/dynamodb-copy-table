@@ -3,6 +3,8 @@ import boto3
 
 from progressbar import printProgressBar
 
+ITEMS_PER_BATCH = 25
+
 
 def migrate(source, target, region, fieldsToChange):
     print("Copying contents of table %s to %s in region %s" % (source, target, region))
@@ -23,13 +25,14 @@ def migrate(source, target, region, fieldsToChange):
         ReturnConsumedCapacity='NONE',
         ConsistentRead=True,
         PaginationConfig={
-            'PageSize': 25,
+            'PageSize': ITEMS_PER_BATCH,
         }
     )
 
     dynamodb = boto3.resource('dynamodb', region_name=region)
     # Note that itemCount is an approximate value. The value in AWS is updated every 6 hours.
     itemCount = dynamodb.Table(source).item_count
+    print("Source table has approximately %s items (as of AWS last update which could be up to 6 hours out of date)" % itemCount)
     i = 0
     printProgressBar(0, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for page in dynamo_response:
@@ -53,7 +56,7 @@ def migrate(source, target, region, fieldsToChange):
                 target: batch
             }
         )
-        i += 25
+        i += ITEMS_PER_BATCH
         printProgressBar(i, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
 

@@ -5,6 +5,8 @@ from uuid import uuid4
 import boto3
 from progressbar import printProgressBar
 
+ITEMS_PER_BATCH = 25
+
 # Generate records
 def proliferate(table, primaryKey, secondaryKey, quantity, region):
     print("Generating records for table %s in region %s" % (table, region))
@@ -26,11 +28,11 @@ def proliferate(table, primaryKey, secondaryKey, quantity, region):
     for page in dynamo_response:
         templateItem = page['Items'][0]
 
-    numberOfBatches = ceil(quantity/25)
+    numberOfBatches = ceil(quantity/ITEMS_PER_BATCH)
     printProgressBar(0, numberOfBatches, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for x in range(numberOfBatches):
         batch = []
-        for y in range(25):
+        for y in range(ITEMS_PER_BATCH):
             generatedItem = deepcopy(templateItem)
             generatedItem[primaryKey]['S'] = str(uuid4())
             generatedItem[secondaryKey]['S'] = str(uuid4())
