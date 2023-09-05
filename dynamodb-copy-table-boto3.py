@@ -53,14 +53,18 @@ def migrate(source, target, region, fieldsToChange):
         if len(batch) == 0:
             continue
         # This seems to smooth out the throughput and avoid throttling
-        time.sleep(0)
-        dynamo_target_client.batch_write_item(
-            RequestItems={
-                target: batch
-            }
-        )
-        i += ITEMS_PER_BATCH
-        printProgressBar(i, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        # time.sleep(0)
+        try:
+            dynamo_target_client.batch_write_item(
+                RequestItems={
+                    target: batch
+                }
+            )
+            i += ITEMS_PER_BATCH
+            printProgressBar(i, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        except Exception as e:
+            print("Failed to write batch to target table: %s" % e)
+            print("Batch was: %s" % batch)
 
 
 if __name__ == '__main__':
