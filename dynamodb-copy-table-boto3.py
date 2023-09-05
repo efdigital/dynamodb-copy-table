@@ -1,4 +1,5 @@
 import argparse
+import time
 import boto3
 
 from progressbar import printProgressBar
@@ -51,6 +52,8 @@ def migrate(source, target, region, fieldsToChange):
         # AWS has a minimum of 1 and a maximum of 25 items per batch
         if len(batch) == 0:
             continue
+        # This seems to smooth out the throughput and avoid throttling
+        time.sleep(0)
         dynamo_target_client.batch_write_item(
             RequestItems={
                 target: batch
