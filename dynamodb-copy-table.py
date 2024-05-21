@@ -1,97 +1,76 @@
-#!/usr/bin/env python
-from boto.dynamodb2.exceptions import ValidationException
-from boto.dynamodb2.fields import HashKey, RangeKey
-from boto.dynamodb2.layer1 import DynamoDBConnection
-from boto.dynamodb2.table import Table
-from boto.exception import JSONResponseError
-from time import sleep
-import sys
-import os
+import argparse
+import boto3
 
-if len(sys.argv) != 3:
-    print("Usage: %s <source_table_name> <destination_table_name>"% sys.argv[0])
-    sys.exit(1)
+from progressbar import printProgressBar
 
-src_table = sys.argv[1]
-dst_table = sys.argv[2]
-region = os.getenv('AWS_DEFAULT_REGION', 'us-west-2')
+ITEMS_PER_BATCH = 25
 
-# host = 'dynamodb.%s.amazonaws.com' % region
-# ddbc = DynamoDBConnection(is_secure=False, region=region, host=host)
-DynamoDBConnection.DefaultRegionName = region
-ddbc = DynamoDBConnection()
 
-# 1. Read and copy the target table to be copied
-table_struct = None
-try:
-    logs = Table(src_table, connection=ddbc)
-    table_struct = logs.describe()
-except JSONResponseError:
-    print("Table %s does not exist" % src_table) 
-    sys.exit(1)
+def migrate(source, target, region, fieldsToChange):
+    print("Copying contents of table %s to %s in region %s" % (source, target, region))
 
-print("*** Reading key schema from %s table" % src_table)
-src = ddbc.describe_table(src_table)['Table']
-hash_key = ''
-range_key = ''
-for schema in src['KeySchema']:
-    attr_name = schema['AttributeName']
-    key_type = schema['KeyType']
-    if key_type == 'HASH':
-        hash_key = attr_name
-    elif key_type == 'RANGE':
-        range_key = attr_name
+    if len(fieldsToChange) > 0:
+        fieldsToChange = [field.split(',') for field in fieldsToChange]
+        for field in fieldsToChange:
+            print("Changing field %s to %s" % (field[0], field[1]))
 
-# 2. Create the new table
-table_struct = None
-try:
-    new_logs = Table(dst_table,
-                    connection=ddbc,
-                    schema=[HashKey(hash_key),
-                            RangeKey(range_key),
-                            ]
-                    )
 
-    table_struct = new_logs.describe()
-    if 'DISABLE_CREATION' in os.environ:
-        print("Creation of new table is disabled. Skipping...")
-    else:
-        print("Table %s already exists" % dst_table)
-        sys.exit(0)
-except JSONResponseError:
-    schema = [HashKey(hash_key)]
-    if range_key != '':
-        schema.append(RangeKey(range_key))
-    new_logs = Table.create(dst_table,
-                            connection=ddbc,
-                            schema=schema,
-                            )
-    print("*** Waiting for the new table %s to become active" % dst_table)
-    sleep(5)
-    while ddbc.describe_table(dst_table)['Table']['TableStatus'] != 'ACTIVE':
-        sleep(3)
-    
+    dynamo_client = boto3.client('dynamodb', region_name=region)
+    dynamo_target_client = boto3.client('dynamodb', region_name=region)
 
-if 'DISABLE_DATACOPY' in os.environ:
-    print("Copying of data from source table is disabled. Exiting...")
-    sys.exit(0)
+    dynamo_paginator = dynamo_client.get_paginator('scan')
+    dynamo_response = dynamo_paginator.paginate(
+        TableName=source,
+        Select='ALL_ATTRIBUTES',
+        ReturnConsumedCapacity='NONE',
+        ConsistentRead=True,
+        PaginationConfig={
+            'PageSize': ITEMS_PER_BATCH,
+        }
+    )
 
-# 3. Add the items
-for item in logs.scan():
-    new_item = {}
-    new_item[hash_key] = item[hash_key]
-    if range_key != '':
-        new_item[range_key] = item[range_key]
-    for f in item.keys():
-        if f in [hash_key, range_key]:
+    dynamodb = boto3.resource('dynamodb', region_name=region)
+    # Note that itemCount is an approximate value. The value in AWS is updated every 6 hours.
+    itemCount = dynamodb.Table(source).item_count
+    print("Source table has approximately %s items (as of AWS last update which could be up to 6 hours out of date)" % itemCount)
+    i = 0
+    printProgressBar(0, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
+    for page in dynamo_response:
+        batch = []
+
+        for item in page['Items']:
+            for field in fieldsToChange:
+                if field[0] in item:
+                    item[field[1]] = item.pop(field[0])
+            batch.append({
+                'PutRequest': {
+                    'Item': item
+                }
+            })
+
+        # AWS has a minimum of 1 and a maximum of 25 items per batch
+        if len(batch) == 0:
             continue
-        new_item[f] = item[f]
-    try:
-        new_logs.use_boolean()
-        new_logs.put_item(new_item, overwrite=True)
-    except ValidationException:
-        print(dst_table, new_item)
-    except JSONResponseError:
-        print(ddbc.describe_table(dst_table)['Table']['TableStatus'])
+        # This seems to smooth out the throughput and avoid throttling
+        # time.sleep(0)
+        try:
+            dynamo_target_client.batch_write_item(
+                RequestItems={
+                    target: batch
+                }
+            )
+            i += ITEMS_PER_BATCH
+            printProgressBar(i, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        except Exception as e:
+            print("Failed to write batch to target table: %s" % e)
+            print("Batch was: %s" % batch)
 
-print("We are done. Exiting...")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser("DynamoDB table copier using boto3")
+    parser.add_argument("sourceTable", help="Source table name", type=str)
+    parser.add_argument("targetTable", help="Target table name", type=str)
+    parser.add_argument("--region", help="AWS region (default: eu-west-2)", type=str, nargs="?", default="eu-west-2")
+    parser.add_argument("--fieldsToChange", help="Field name to change, and new name to use e.g. 'oldField,newField'", type=str, nargs='*', default=[])
+    args = parser.parse_args()
+    migrate(args.sourceTable, args.targetTable, args.region, args.fieldsToChange)
