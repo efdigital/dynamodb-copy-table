@@ -1,12 +1,36 @@
 # dynamodb-copy-table-python3
-A simple python 3 script to copy dynamodb table
+
+A simple Python scrip to copy data from one table to another in the same AWS Region
+This was tested using `python 3.12` and `boto3@1.34.109`
 
 ---
 
 ### Requirements
 
-- Python 3.x
-- boto (`pip install boto`)
+This script assumes a table is already created in the destination account.
+
+- Python 3.12
+- boto3 (`pip install boto3`)
+
+```
+# Pyenv v3.12
+brew install pyenv
+pyenv install 3.12
+echo "3.12" > ~/.pyenv/version
+eval "$(pyenv init -)"
+python --version
+```
+
+Setup `venv`:
+
+```
+# Setup venv
+python -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
 
 ### Usage
 
@@ -16,35 +40,12 @@ A simple usage example:
 $ python dynamodb-copy-table.py src_table dst_table
 ```
 
-The following environment variables can be used:
-Variable | Purpose
---- | ---
-`AWS_DEFAULT_REGION` | Select the region (the default region is `us-west-2`)
-`DISABLE_CREATION` | Disable the creation of a new table (Useful if the table already exists)
-`DISABLE_DATACOPY` | Disable the copying of data from source table to destination table
+### Arguments:
+
+`region`: the default region is `us-west-2`
 
 ```shell
-$ AWS_DEFAULT_REGION=us-east-1 DISABLE_CREATION=yes DISABLE_DATACOPY=yes \
-python dynamodb-copy-table.py src_table dst_table
-```
-
-#### Docker Image
-
-The docker image is available as [techgaun/dynamodb-copy-table:latest](https://hub.docker.com/r/techgaun/dynamodb-copy-table)
-in the official docker hub that you can pull from.
-
-Usage:
-
-```shell
-# pull image down
-docker pull techgaun/dynamodb-copy-table:latest
-
-# invoke help
-$ docker run --rm -it techgaun/dynamodb-copy-table:latest
-Usage: dynamodb-copy-table.py <source_table_name> <destination_table_name>
-
-# invoke copy
-docker run -e AWS_ACCESS_KEY_ID=abc -e AWS_SECRET_ACCESS_KEY=def --rm -it techgaun/dynamodb-copy-table:latest src dest
+python dynamodb-copy-table.py src_table dst_table --region=cn-north-1
 ```
 
 ### References
