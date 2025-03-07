@@ -45,6 +45,8 @@ $ python dynamodb-copy-table.py src_table dst_table
 `region`: the default region is `us-west-2`
 
 ```shell
+export AWS_PROFILE=
+
 python dynamodb-copy-table.py src_table dst_table --region=cn-north-1
 ```
 

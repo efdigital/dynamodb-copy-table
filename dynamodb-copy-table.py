@@ -33,6 +33,9 @@ def migrate(source, target, region, fieldsToChange):
     # Note that itemCount is an approximate value. The value in AWS is updated every 6 hours.
     itemCount = dynamodb.Table(source).item_count
     print("Source table has approximately %s items (as of AWS last update which could be up to 6 hours out of date)" % itemCount)
+    if not itemCount:
+        print("Using item count 100, the progress bar will not be accurate")
+        itemCount = 100
     i = 0
     printProgressBar(0, itemCount, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for page in dynamo_response:
